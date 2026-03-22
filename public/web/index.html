@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VoxSession v4</title>
+<script src="/socket.io/socket.io.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:#060811;color:#cdd5f0;font-family:'Sora',sans-serif;font-size:14px}
+input,button,select{font-family:inherit}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1c2240;border-radius:99px}
+:root{
+  --bg:#060811;--bg2:#0b0e1c;--bg3:#0f1224;--surface:#131729;--surface2:#171d30;
+  --border:#1c2240;--border2:#232b4a;
+  --text:#cdd5f0;--text2:#7a84aa;--text3:#3d4670;
+  --accent:#5b8dee;--accent2:#4070d4;
+  --orange:#ff7043;--orange2:#e55a2b;
+  --green:#26d98a;--red:#ff4560;--purple:#b06af3;--gold:#ffc947;--cyan:#22d3ee;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes ripple{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.8);opacity:0}}
+@keyframes waveBar{0%,100%{transform:scaleY(.12)}50%{transform:scaleY(1)}}
+@keyframes notifIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes cardPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,112,67,.5)}50%{box-shadow:0 0 0 12px rgba(255,112,67,0)}}
+@keyframes broadcastPulse{0%,100%{box-shadow:0 0 0 0 rgba(38,217,138,.5)}50%{box-shadow:0 0 0 16px rgba(38,217,138,0)}}
+@keyframes cardEntrance{from{opacity:0;transform:scale(.9) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes liveDot{0%,100%{box-shadow:0 0 0 0 rgba(255,69,96,.6)}50%{box-shadow:0 0 0 6px rgba(255,69,96,0)}}
+@keyframes adminBroadcast{0%,100%{border-color:#26d98a60}50%{border-color:#26d98aff}}
+
+.page{display:none;height:100vh;flex-direction:column;overflow:hidden}
+.page.active{display:flex;animation:fadeIn .25s ease}
+
+/* Topbar */
+.topbar{height:54px;flex-shrink:0;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 22px;gap:14px;z-index:100}
+.logo{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.logo-ring{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2.5s infinite}
+.tbr{display:flex;align-items:center;gap:10px}
+
+/* Badges */
+.badge{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:4px}
+.b-admin{background:#b06af315;color:var(--purple);border:1px solid #b06af335}
+.b-user{background:#5b8dee15;color:var(--accent);border:1px solid #5b8dee35}
+.b-live{background:#ff456015;color:var(--red);border:1px solid #ff456035;animation:pulse 1.5s infinite}
+.b-online{background:#26d98a15;color:var(--green);border:1px solid #26d98a35}
+.b-broadcast{background:#26d98a25;color:var(--green);border:1px solid #26d98a60;animation:pulse 1s infinite}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap;cursor:pointer}
+.btn:active:not(:disabled){transform:scale(.96)}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn-accent{background:var(--accent);color:#fff;border:none}.btn-accent:hover:not(:disabled){background:var(--accent2)}
+.btn-orange{background:var(--orange);color:#fff;border:none}.btn-orange:hover:not(:disabled){background:var(--orange2)}
+.btn-red{background:var(--red);color:#fff;border:none}.btn-red:hover:not(:disabled){background:#e03050}
+.btn-green{background:var(--green);color:#060811;border:none}.btn-green:hover:not(:disabled){background:#1fc077}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-ghost:hover:not(:disabled){color:var(--text);border-color:var(--text3)}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn-full{width:100%}
+
+/* Inputs */
+.inp{background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:10px 13px;color:var(--text);font-size:13px;width:100%;transition:border .18s}
+.inp:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(91,141,238,.12)}
+.inp::placeholder{color:var(--text3)}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;display:block}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px}
+.card-sm{padding:12px}
+
+/* Layout */
+.layout{display:grid;flex:1;overflow:hidden}
+.two-col{grid-template-columns:280px 1fr}
+.sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--bg2)}
+.sb-inner{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+.main{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.sec-hdr{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+
+/* Avatar */
+.av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;flex-shrink:0}
+.av-blue{background:#5b8dee18;color:var(--accent);border:1px solid #5b8dee35}
+.av-orange{background:#ff704318;color:var(--orange);border:1px solid #ff704335}
+.av-green{background:#26d98a18;color:var(--green);border:1px solid #26d98a35}
+.av-purple{background:#b06af318;color:var(--purple);border:1px solid #b06af335}
+.av-admin{background:#b06af325;color:var(--purple);border:2px solid #b06af350}
+.av-lg{width:46px;height:46px;font-size:14px}
+
+/* Waveform */
+.wv{display:flex;align-items:center;gap:2px;height:24px}
+.wb{width:3px;border-radius:99px;background:var(--orange);transform-origin:center;transform:scaleY(.12)}
+.wv.on .wb{animation:waveBar .45s ease-in-out infinite alternate}
+.wv.off .wb{background:var(--text3)}
+
+/* Audio player */
+.ap{display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:8px;padding:9px 12px;border:1px solid var(--border)}
+.ap-play{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;background:var(--accent);color:#fff;border:none;cursor:pointer;transition:all .18s}
+.ap-play:hover{background:var(--accent2);transform:scale(1.08)}
+.ap-play.playing{background:var(--orange)}
+.ap-prog{flex:1;height:4px;background:var(--border);border-radius:99px;cursor:pointer;overflow:hidden}
+.ap-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:99px;transition:width .1s linear;pointer-events:none}
+.ap-dur{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);white-space:nowrap;min-width:58px;text-align:right}
+
+/* Message card */
+.msg-card{display:flex;gap:11px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;animation:fadeUp .3s ease}
+.msg-card.is-reply{background:#1a2d1a;border-color:#26d98a30;margin-left:28px;margin-top:6px;position:relative;animation:fadeUp .3s ease}
+.msg-card.is-reply::before{content:'';position:absolute;left:-16px;top:50%;width:12px;height:2px;background:#26d98a50}
+.msg-card.is-reply::after{content:'';position:absolute;left:-16px;top:0;width:2px;height:calc(50% + 2px);background:#26d98a50}
+.msg-card.admin-rec{background:#0c1a2e;border-color:#5b8dee30}
+.msg-meta{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.msg-name{font-size:13px;font-weight:600;color:var(--text)}
+.msg-uid{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3)}
+.msg-time{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text2);margin-left:auto}
+.dur-tag{font-family:'JetBrains Mono',monospace;font-size:9px;background:var(--bg3);color:var(--text3);border:1px solid var(--border);padding:2px 6px;border-radius:4px}
+.reply-badge{font-family:'JetBrains Mono',monospace;font-size:8px;background:#26d98a12;color:var(--green);border:1px solid #26d98a30;padding:2px 7px;border-radius:4px}
+.reply-msg-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#26d98a10;color:var(--green);border:1px solid #26d98a30;cursor:pointer;transition:all .15s}
+.reply-msg-btn:hover{background:#26d98a20}
+
+/* Date divider */
+.date-div{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px}
+.date-div::before,.date-div::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Mic */
+.mic-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.mic-ring{position:absolute;border-radius:50%;border:2px solid var(--orange);animation:ripple 1.2s ease-out infinite;pointer-events:none}
+.mic-btn{width:80px;height:80px;border-radius:50%;background:var(--surface);border:2px solid var(--border2);color:var(--text3);font-size:28px;transition:all .2s;position:relative;z-index:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mic-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.mic-btn.recording{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 0 40px rgba(255,112,67,.4);transform:scale(1.06)}
+.mic-btn:disabled{opacity:.25}
+
+/* Stats */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px;text-align:center}
+.stat-n{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--orange)}
+.stat-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-top:2px}
+
+/* Notifications */
+#notif-wrap{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.notif{min-width:256px;max-width:330px;padding:11px 14px;border-radius:10px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:9px;animation:notifIn .28s ease;pointer-events:all;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.n-success{background:#0c271e;border:1px solid #26d98a35;color:var(--green)}
+.n-error{background:#270c14;border:1px solid #ff456035;color:#ff8098}
+.n-info{background:#0c1529;border:1px solid #5b8dee35;color:#93b4ff}
+.n-warn{background:#271e08;border:1px solid #ffc94735;color:var(--gold)}
+
+/* Live dot */
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:liveDot 1.5s infinite;flex-shrink:0}
+
+/* Spinner */
+.spin2{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+
+/* Dots */
+.dots span{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--orange);margin:0 2px;animation:pulse 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+
+/* Empty */
+.empty{text-align:center;padding:40px 20px}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-t{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.empty-s{font-size:12px;color:var(--text3)}
+
+/* Tabs */
+.tabs{display:flex;gap:3px;background:var(--bg3);padding:4px;border-radius:10px}
+.tab{flex:1;padding:7px;border-radius:7px;font-size:10px;font-weight:600;color:var(--text3);transition:all .18s;font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
+.tab.active{background:var(--surface2);color:var(--text);box-shadow:0 1px 6px rgba(0,0,0,.3)}
+.tab:hover:not(.active){color:var(--text2)}
+
+/* dfbtn */
+.dfbtn{width:100%;text-align:left;padding:7px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text2);font-size:11px;transition:all .14s;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.dfbtn.active{border-color:var(--orange);color:var(--orange);background:rgba(255,112,67,.06)}
+.dfbtn:hover:not(.active){border-color:var(--border2);color:var(--text)}
+.dcnt{font-family:'JetBrains Mono',monospace;font-size:9px;background:var(--bg);padding:1px 5px;border-radius:3px}
+
+/* Session banners */
+.sess-banner{background:linear-gradient(135deg,#0c1529,#0c1020);border:1px solid #5b8dee25;border-radius:12px;padding:14px}
+.sess-banner.live{background:linear-gradient(135deg,#1a0810,#120508);border-color:#ff456025}
+.sess-banner.ended{background:var(--bg3);border-color:var(--border)}
+
+/* Join card */
+.join-card{background:linear-gradient(135deg,rgba(255,112,67,.07),rgba(91,141,238,.07));border:1px solid rgba(255,112,67,.25);border-radius:14px;padding:26px;text-align:center;animation:fadeUp .35s ease}
+
+/* Rec panel */
+.rec-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;text-align:center}
+.rec-panel.active{border-color:#ff704340;background:rgba(255,112,67,.03)}
+.rec-panel.reply-active{border-color:#26d98a40;background:rgba(38,217,138,.03)}
+.rec-timer{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--orange);margin-top:10px}
+
+/* Login */
+#page-login{align-items:center;justify-content:center;background:var(--bg)}
+.login-box{width:100%;max-width:390px;animation:fadeUp .4s ease;padding:0 16px}
+.login-icon{width:68px;height:68px;border-radius:18px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 14px;box-shadow:0 8px 30px rgba(91,141,238,.3)}
+.cred-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px}
+.cred-row:last-child{border-bottom:none}
+
+/* ══════════════════════════════════════
+   USER CARDS GRID — Center of Admin Panel
+══════════════════════════════════════ */
+.cards-section{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:20px;
+}
+.cards-grid{
+  display:grid;
+  gap:14px;
+  /* Dynamic columns set by JS */
+}
+
+/* Individual user card */
+.user-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:18px 14px;
+  text-align:center;
+  transition:all .3s ease;
+  position:relative;
+  animation:cardEntrance .4s ease;
+}
+.user-card.joined{border-color:#5b8dee40;background:linear-gradient(135deg,#0e1525,#0d1220)}
+.user-card.speaking{
+  border-color:var(--orange) !important;
+  background:linear-gradient(135deg,#1a0e05,#150a02) !important;
+  animation:cardPulse 1.5s infinite;
+  transform:scale(1.03);
+  z-index:2;
+}
+.user-card.offline{opacity:.5;filter:grayscale(.6)}
+.card-avatar{
+  width:56px;height:56px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;
+  margin:0 auto 10px;transition:all .3s;
+}
+.user-card.speaking .card-avatar{
+  box-shadow:0 0 20px rgba(255,112,67,.5);
+  transform:scale(1.1);
+}
+.card-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-id{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);margin-bottom:10px}
+.card-status{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;
+  padding:3px 10px;border-radius:99px;letter-spacing:.08em;
+}
+.status-joined{background:#5b8dee15;color:var(--accent);border:1px solid #5b8dee30}
+.status-speaking{background:#ff704320;color:var(--orange);border:1px solid #ff704350}
+.status-offline{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.card-wave{justify-content:center;margin-top:8px;height:20px}
+.card-msg-count{
+  position:absolute;top:10px;right:10px;
+  background:var(--orange);color:#fff;
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* Admin broadcast panel */
+.broadcast-panel{
+  background:linear-gradient(135deg,#0a1f0a,#071507);
+  border:2px solid #26d98a30;border-radius:14px;padding:18px;
+  transition:all .3s;
+}
+.broadcast-panel.active{
+  border-color:var(--green);
+  background:linear-gradient(135deg,#0d2a0d,#09180a);
+  animation:adminBroadcast 2s infinite;
+}
+.broadcast-controls{display:flex;align-items:center;gap:12px}
+.broadcast-btn{
+  width:60px;height:60px;border-radius:50%;border:none;
+  font-size:24px;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.broadcast-btn.off{background:var(--surface);border:2px solid var(--border2);color:var(--text3)}
+.broadcast-btn.off:hover{border-color:var(--green);color:var(--green)}
+.broadcast-btn.on{background:var(--green);color:#060811;box-shadow:0 0 30px rgba(38,217,138,.5);animation:broadcastPulse 1.5s infinite}
+.broadcast-info{flex:1}
+.broadcast-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.broadcast-sub{font-size:11px;color:var(--text2)}
+.broadcast-timer{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--green);margin-top:4px}
+
+/* Admin reply floating panel */
+.admin-reply-float{
+  position:fixed;bottom:24px;right:24px;z-index:500;width:300px;
+  animation:fadeUp .3s ease;
+}
+
+/* User panel - admin speaking indicator */
+.admin-speaking-bar{
+  background:linear-gradient(135deg,rgba(38,217,138,.1),rgba(38,217,138,.05));
+  border:1px solid #26d98a40;border-radius:12px;padding:14px;
+  display:flex;align-items:center;gap:12px;
+  animation:fadeUp .3s ease;
+}
+.speaking-icon{font-size:24px;flex-shrink:0;animation:pulse 1s infinite}
+
+/* Table */
+.utbl{width:100%;border-collapse:collapse}
+.utbl th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:7px 11px;text-align:left;border-bottom:1px solid var(--border)}
+.utbl td{padding:9px 11px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)}
+.utbl tr:last-child td{border-bottom:none}
+.utbl tr:hover td{background:var(--bg3)}
+
+.stor-bar{height:5px;background:var(--border);border-radius:99px;margin-top:5px}
+.stor-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--orange))}
+
+@media(max-width:768px){.two-col{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+</head>
+<body>
+<div id="notif-wrap"></div>
+
+<!-- ═══ LOGIN ═══════════════════════════════════════ -->
+<div id="page-login" class="page active">
+  <div class="login-box">
+    <div style="text-align:center;margin-bottom:26px">
+      <div class="login-icon">🎙</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--text);letter-spacing:.06em">VOXSESSION</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Live Voice Platform v4 — WebRTC</div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div><label class="lbl">User ID</label><input id="l-id" class="inp" placeholder="ADMIN or USR001" autocomplete="off"/></div>
+        <div><label class="lbl">Password</label><input id="l-pw" class="inp" type="password" placeholder="Enter password"/></div>
+        <div id="l-err" style="display:none;background:#270c14;border:1px solid #ff456030;border-radius:8px;padding:9px 13px;font-size:12px;color:#ff8098"></div>
+        <button id="l-btn" class="btn btn-accent btn-full" style="margin-top:4px;padding:11px">
+          <span id="l-txt">Access Platform →</span>
+          <div id="l-spin" class="spin2" style="display:none"></div>
+        </button>
+      </div>
+    </div>
+    <div class="card card-sm">
+      <div class="sec-hdr" style="margin-bottom:8px">Demo Credentials</div>
+      <div class="cred-row"><span style="color:var(--text3)">Admin</span><span style="font-family:'JetBrains Mono',monospace;color:var(--orange)">ADMIN</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text2)">admin123</span></div>
+      <div id="cred-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN ════════════════════════════════════════ -->
+<div id="page-admin" class="page">
+  <div class="topbar">
+    <div class="logo"><div class="logo-ring"></div>VoxSession</div>
+    <div class="tbr">
+      <span id="a-live" class="badge b-live" style="display:none">● LIVE</span>
+      <span id="a-broadcast-badge" class="badge b-broadcast" style="display:none">📡 BROADCASTING</span>
+      <span class="badge b-admin">Admin</span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  <div class="layout two-col" style="flex:1;overflow:hidden">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-inner">
+        <div><div class="sec-hdr">Session Control</div><div id="a-sess-ctrl"></div></div>
+        <div>
+          <div class="sec-hdr"><span>Online</span><span id="a-online-cnt" style="color:var(--green);font-family:'JetBrains Mono',monospace;font-size:10px"></span></div>
+          <div id="a-user-list" style="display:flex;flex-direction:column;gap:5px"></div>
+        </div>
+        <div>
+          <div class="sec-hdr">Stats</div>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-n" id="s1">0</div><div class="stat-l">Joined</div></div>
+            <div class="stat-box"><div class="stat-n" id="s2">0</div><div class="stat-l">Messages</div></div>
+            <div class="stat-box"><div class="stat-n" id="s3">0</div><div class="stat-l">Users</div></div>
+            <div class="stat-box"><div class="stat-n" id="s4">0</div><div class="stat-l">Recordings</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-hdr">Add User</div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <input id="n-name" class="inp" placeholder="Full Name"/>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+              <input id="n-id"   class="inp" placeholder="User ID"/>
+              <input id="n-pass" class="inp" placeholder="Password" type="password"/>
+            </div>
+            <button class="btn btn-green btn-sm" onclick="addUser()">+ Add User</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Panel -->
+    <div class="main" id="admin-main">
+      <div class="tabs">
+        <button class="tab active" onclick="aTab('live',this)">Live Session</button>
+        <button class="tab" onclick="aTab('messages',this)">User Messages</button>
+        <button class="tab" onclick="aTab('recordings',this)">My Recordings</button>
+        <button class="tab" onclick="aTab('users',this)">Manage Users</button>
+      </div>
+      <div id="a-tab-live"></div>
+      <div id="a-tab-messages"   style="display:none"></div>
+      <div id="a-tab-recordings" style="display:none"></div>
+      <div id="a-tab-users"      style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ USER ═════════════════════════════════════════ -->
+<div id="page-user" class="page">
+  <div class="topbar">
+    <div class="logo"><div class="logo-ring"></div>VoxSession</div>
+    <div class="tbr">
+      <span id="u-live" class="badge b-live" style="display:none">● LIVE</span>
+      <span class="badge b-user">User</span>
+      <span id="u-name-bar" style="font-size:12px;color:var(--text2)"></span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  <div class="layout two-col" style="flex:1;overflow:hidden">
+    <div class="sidebar">
+      <div class="sb-inner">
+        <div class="card card-sm">
+          <div style="display:flex;gap:11px;align-items:center">
+            <div id="u-av-s" class="av av-blue av-lg"></div>
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--text)" id="u-nm-s"></div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);margin-top:2px" id="u-id-s"></div>
+              <div style="margin-top:5px"><span class="badge b-user" style="font-size:8px">USER</span></div>
+            </div>
+          </div>
+        </div>
+        <div id="u-sess-card" class="sess-banner">
+          <div class="sec-hdr">Session</div>
+          <div id="u-sess-info" style="font-size:12px;color:var(--text3)">No active session</div>
+        </div>
+        <div id="u-date-wrap" style="display:none">
+          <div class="sec-hdr">Filter by Date</div>
+          <div id="u-date-list" style="display:flex;flex-direction:column;gap:5px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="main">
+      <!-- Admin speaking indicator -->
+      <div id="u-admin-speaking" style="display:none">
+        <div class="admin-speaking-bar">
+          <span class="speaking-icon">📢</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--green)">Admin is speaking</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">Listen through your speakers</div>
+          </div>
+          <div class="wv on" style="margin-left:auto">
+            ${Array.from({length:10},(_,i)=>`<div class="wb" style="animation-delay:${i*.06}s"></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div id="u-join-prompt"  style="display:none"></div>
+      <div id="u-rec-panel"    style="display:none">
+        <div id="reply-banner-wrap"></div>
+        <div class="rec-panel" id="rec-inner">
+          <div class="lbl" style="margin-bottom:16px">Push to Talk</div>
+          <div class="mic-wrap" id="mic-wrap">
+            <button class="mic-btn" id="mic-btn"
+              onmousedown="startRec()" onmouseup="stopRec()" onmouseleave="stopIfRec()"
+              ontouchstart="touchS(event)" ontouchend="touchE(event)">🎙</button>
+          </div>
+          <div id="rec-timer" class="rec-timer" style="display:none">0:00</div>
+          <div id="rec-hint"  style="font-size:11px;color:var(--text3);margin-top:10px">Hold to record · Release to send</div>
+          <div id="rec-wave"  class="wv off" style="justify-content:center;margin-top:12px;display:none"></div>
+        </div>
+      </div>
+      <div>
+        <div class="sec-hdr" id="u-msgs-lbl">Your Voice Messages</div>
+        <div id="u-msgs-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin reply float panel (injected dynamically) -->
+
+<script>
+"use strict";
+/* ═══════════ STATE ═══════════ */
+const API = window.location.origin;
+let token = localStorage.getItem("vox_token");
+let me    = JSON.parse(localStorage.getItem("vox_user")||"null");
+let io_   = null;
+
+let S = {
+  session:null, onlineUsers:[], speakingUsers:[], joinedUsers:[],
+  allUsers:[], messages:[], curTab:"live", selDate:null, adminBroadcasting:false,
+};
+
+// Recording state — user
+let isRec=false, recTimer=null, recStart=null, mr=null, recChunks=[];
+// Broadcast state — admin
+let isBroadcasting=false, broadTimer=null, broadStart=null, broadMr=null, broadChunks=[];
+let broadcastInterval=null;
+// Admin reply state
+let adminReplyTarget=null, isAdminRec=false, adminMr=null, adminChunks=[], adminRecTimer=null, adminRecStart=null;
+// WebRTC
+let peerConnections = {}; // userId → RTCPeerConnection
+let localStream     = null;
+let adminSocketId   = null;
+const audioCache    = {};
+
+const ICE_SERVERS = [
+  { urls:"stun:stun.l.google.com:19302" },
+  { urls:"stun:stun1.l.google.com:19302" },
+];
+
+/* ═══════════ UTILS ═══════════ */
+const fmtTime  = ts => new Date(ts).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+const fmtDate  = ts => new Date(ts).toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+const fmtDur   = s  => { const n=Math.floor(s); return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`; };
+const avCls    = c  => c==="orange"?"av-orange":c==="green"?"av-green":c==="purple"?"av-purple":"av-blue";
+const fmtBytes = b  => b>1e9?`${(b/1e9).toFixed(2)} GB`:b>1e6?`${(b/1e6).toFixed(1)} MB`:`${(b/1024).toFixed(0)} KB`;
+const getMime  = ()  => { const t=["audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus","audio/mp4"]; for(const m of t)if(MediaRecorder.isTypeSupported(m))return m; return ""; };
+
+/* ═══════════ NOTIFICATIONS ═══════════ */
+function notif(msg, type="info") {
+  const icons={success:"✅",error:"❌",info:"💬",warn:"⚠️"};
+  const wrap=document.getElementById("notif-wrap");
+  const el=document.createElement("div");
+  el.className=`notif n-${type}`;
+  el.innerHTML=`<span style="font-size:14px">${icons[type]||"💬"}</span><span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(()=>{el.style.cssText+="opacity:0;transform:translateX(16px);transition:all .28s";setTimeout(()=>el.remove(),300)},3500);
+}
+
+/* ═══════════ API ═══════════ */
+async function api(method, path, body) {
+  const opts={method,headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`}};
+  if(body) opts.body=JSON.stringify(body);
+  const r=await fetch(API+path,opts);
+  const d=await r.json();
+  if(!r.ok) throw new Error(d.error||"Request failed");
+  return d;
+}
+async function uploadAudio(blob, sessionId, duration, replyToId) {
+  const ext=blob.type.includes("ogg")?"ogg":blob.type.includes("mp4")?"mp4":"webm";
+  const fd=new FormData();
+  fd.append("audio",blob,`rec.${ext}`);
+  fd.append("sessionId",sessionId);
+  fd.append("duration",duration.toFixed(2));
+  if(replyToId) fd.append("replyToId",replyToId);
+  const r=await fetch(`${API}/api/messages/upload`,{method:"POST",headers:{"Authorization":`Bearer ${token}`},body:fd});
+  const d=await r.json(); if(!r.ok) throw new Error(d.error||"Upload failed");
+  return d;
+}
+async function uploadAdminRecording(blob, sessionId, duration) {
+  const ext=blob.type.includes("ogg")?"ogg":blob.type.includes("mp4")?"mp4":"webm";
+  const fd=new FormData();
+  fd.append("audio",blob,`admin-rec.${ext}`);
+  fd.append("sessionId",sessionId);
+  fd.append("duration",duration.toFixed(2));
+  const r=await fetch(`${API}/api/admin/recording/upload`,{method:"POST",headers:{"Authorization":`Bearer ${token}`},body:fd});
+  const d=await r.json(); if(!r.ok) throw new Error(d.error||"Upload failed");
+  return d;
+}
+
+/* ═══════════ SOCKET + WebRTC ═══════════ */
+function initSocket() {
+  io_=io(API,{auth:{token},transports:["websocket","polling"]});
+  io_.on("connect",    ()=>console.log("[WS] connected:", io_.id));
+  io_.on("disconnect", ()=>console.log("[WS] disconnected"));
+
+  io_.on("init_state", data=>{
+    S.session=data.session; S.onlineUsers=data.onlineUsers||[]; S.speakingUsers=data.speakingUsers||[];
+    if(S.session) loadSessMsgs(S.session.id).then(renderAll);
+    else renderAll();
+  });
+
+  io_.on("session_started", sess=>{ S.session=sess; S.joinedUsers=[]; S.messages=[]; renderAll(); if(me.role!=="admin") notif(`🔔 Session "${sess.title}" is live!`,"info"); });
+  io_.on("session_ended",   sess=>{ S.session=sess; if(isRec)stopRec(); stopBroadcast(); renderAll(); notif("Session ended.","warn"); });
+  io_.on("user_joined_session", ({userId,userName,color,avatar})=>{ if(!S.joinedUsers.includes(userId))S.joinedUsers.push(userId); renderAll(); if(me.role==="admin")notif(`${userName} joined.`,"info"); });
+  io_.on("user_online",  ({id,name,role,avatar,color})=>{ if(!S.onlineUsers.find(u=>u.id===id))S.onlineUsers.push({id,name,role,avatar,color}); renderAll(); });
+  io_.on("user_offline", ({id})=>{ S.onlineUsers=S.onlineUsers.filter(u=>u.id!==id); renderAll(); });
+  io_.on("user_speaking",({userId,speaking})=>{ if(speaking){ if(!S.speakingUsers.includes(userId))S.speakingUsers.push(userId); } else S.speakingUsers=S.speakingUsers.filter(i=>i!==userId); renderAll(); });
+
+  io_.on("new_message", msg=>{ if(!S.messages.find(m=>m.id===msg.id)){ S.messages.push(msg); renderMsgs(); if(me.role==="admin")notif(`🎙 ${msg.user_name} sent a message.`,"info"); } });
+  io_.on("admin_reply_notification", ({targetUserId,adminName})=>{ if(me.id===targetUserId) notif(`↩️ Admin replied to your message!`,"success"); });
+
+  io_.on("admin_broadcasting", ({broadcasting})=>{
+    S.adminBroadcasting=broadcasting;
+    renderAll();
+    if(me.role!=="admin"){
+      const bar=document.getElementById("u-admin-speaking");
+      if(bar) bar.style.display=broadcasting?"block":"none";
+    }
+  });
+
+  io_.on("user_added",   u=>{ S.allUsers.push(u); renderAll(); buildCredsList(); });
+  io_.on("user_removed", ({id})=>{ S.allUsers=S.allUsers.filter(u=>u.id!==id); renderAll(); });
+
+  // ── WebRTC Events ────────────────────────────────────────────────────────────
+
+  // User receives: admin started broadcast, connect to admin
+  io_.on("webrtc:connect_to_admin", async ({ adminSocketId:sid, adminId }) => {
+    if(me.role==="admin") return;
+    adminSocketId=sid;
+    console.log("[WebRTC] Connecting to admin broadcast...");
+    await createUserPeerConnection(adminId, sid);
+  });
+
+  io_.on("webrtc:admin_broadcast_start", async ({ adminSocketId:sid }) => {
+    if(me.role==="admin") return;
+    adminSocketId=sid;
+    console.log("[WebRTC] Admin broadcast started, connecting...");
+    await createUserPeerConnection("ADMIN", sid);
+  });
+
+  // Admin receives offer from user
+  io_.on("webrtc:offer", async ({ from, fromSocketId, offer }) => {
+    if(me.role!=="admin") return;
+    console.log("[WebRTC] Received offer from", from);
+    if(!peerConnections[from]) {
+      const pc=createAdminPeerConnection(from, fromSocketId);
+      peerConnections[from]=pc;
+    }
+    const pc=peerConnections[from];
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer=await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    io_.emit("webrtc:answer", { to:from, answer });
+  });
+
+  // User receives answer from admin
+  io_.on("webrtc:answer", async ({ from, answer }) => {
+    if(me.role==="admin") return;
+    const pc=peerConnections["ADMIN"];
+    if(pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+  });
+
+  // ICE candidates
+  io_.on("webrtc:ice", ({ from, fromSocketId, candidate }) => {
+    const pcKey = me.role==="admin" ? from : "ADMIN";
+    const pc=peerConnections[pcKey];
+    if(pc&&candidate) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(()=>{});
+  });
+}
+
+// Admin creates RTCPeerConnection for each user
+function createAdminPeerConnection(userId, userSocketId) {
+  const pc=new RTCPeerConnection({ iceServers:ICE_SERVERS });
+  // Add admin's mic stream tracks to this peer connection
+  if(localStream) localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+  pc.onicecandidate=e=>{ if(e.candidate) io_.emit("webrtc:ice",{ to:userId, candidate:e.candidate }); };
+  pc.onconnectionstatechange=()=>console.log(`[WebRTC] Admin→${userId}:`, pc.connectionState);
+  return pc;
+}
+
+// User creates RTCPeerConnection to receive admin audio
+async function createUserPeerConnection(adminId, adminSockId) {
+  // Close existing
+  if(peerConnections["ADMIN"]) { peerConnections["ADMIN"].close(); delete peerConnections["ADMIN"]; }
+  const pc=new RTCPeerConnection({ iceServers:ICE_SERVERS });
+  peerConnections["ADMIN"]=pc;
+
+  pc.ontrack=e=>{
+    console.log("[WebRTC] Received admin audio track");
+    let audioEl=document.getElementById("admin-audio-player");
+    if(!audioEl){ audioEl=document.createElement("audio"); audioEl.id="admin-audio-player"; audioEl.autoplay=true; audioEl.style.display="none"; document.body.appendChild(audioEl); }
+    audioEl.srcObject=e.streams[0];
+    audioEl.play().catch(()=>{});
+  };
+  pc.onicecandidate=e=>{ if(e.candidate) io_.emit("webrtc:ice",{ to:"ADMIN", candidate:e.candidate }); };
+  pc.onconnectionstatechange=()=>console.log("[WebRTC] User connection:", pc.connectionState);
+
+  // Create offer
+  const offer=await pc.createOffer({ offerToReceiveAudio:true });
+  await pc.setLocalDescription(offer);
+  io_.emit("webrtc:offer", { to:"ADMIN", offer, from:me.id });
+}
+
+/* ═══════════ LOGIN ═══════════ */
+document.getElementById("l-id").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("l-pw").focus()});
+document.getElementById("l-pw").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin()});
+document.getElementById("l-btn").addEventListener("click",doLogin);
+
+async function doLogin() {
+  const id=document.getElementById("l-id").value.trim();
+  const pw=document.getElementById("l-pw").value;
+  const errEl=document.getElementById("l-err");
+  errEl.style.display="none";
+  if(!id||!pw){errEl.textContent="Please enter ID and password.";errEl.style.display="block";return;}
+  const btn=document.getElementById("l-btn"); btn.disabled=true;
+  document.getElementById("l-txt").textContent="Signing in…";document.getElementById("l-spin").style.display="block";
+  try {
+    const data=await api("POST","/api/auth/login",{userId:id,password:pw});
+    token=data.token; me=data.user;
+    localStorage.setItem("vox_token",token); localStorage.setItem("vox_user",JSON.stringify(me));
+    await loadInitData(); initSocket();
+    showPage(me.role==="admin"?"admin":"user");
+  } catch(e) { errEl.textContent="Invalid ID or password."; errEl.style.display="block"; }
+  finally { btn.disabled=false; document.getElementById("l-txt").textContent="Access Platform →"; document.getElementById("l-spin").style.display="none"; }
+}
+
+function logout() {
+  if(isRec)stopRec(); stopBroadcast(); cancelAdminReply();
+  Object.values(peerConnections).forEach(pc=>pc.close()); peerConnections={};
+  if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+  if(io_)io_.disconnect();
+  token=null;me=null;
+  localStorage.removeItem("vox_token");localStorage.removeItem("vox_user");
+  S={session:null,onlineUsers:[],speakingUsers:[],joinedUsers:[],allUsers:[],messages:[],curTab:"live",selDate:null,adminBroadcasting:false};
+  showPage("login");
+}
+
+/* ═══════════ LOAD DATA ═══════════ */
+async function loadInitData() {
+  if(me.role==="admin"){
+    const[users,active]=await Promise.all([api("GET","/api/users"),api("GET","/api/sessions/active")]);
+    S.allUsers=users; S.session=active;
+    if(active) await loadSessMsgs(active.id);
+  } else {
+    S.session=await api("GET","/api/sessions/active");
+    if(S.session) await loadSessMsgs(S.session.id);
+    else await loadUserMsgs();
+  }
+}
+async function loadSessMsgs(sid){ const m=await api("GET",`/api/sessions/${sid}/messages`).catch(()=>[]); S.messages=m; }
+async function loadUserMsgs(date){ const u=date?`/api/messages?date=${date}`:"/api/messages"; const m=await api("GET",u).catch(()=>[]); if(date){ const ids=new Set(S.messages.map(x=>x.id)); m.forEach(x=>{if(!ids.has(x.id))S.messages.push(x);}); } else S.messages=m; }
+
+/* ═══════════ RENDER ═══════════ */
+function renderAll()    { if(!me)return; me.role==="admin"?renderAdmin():renderUser(); }
+function renderSidebar(){ if(!me)return; me.role==="admin"?renderAdminSb():renderUserSb(); }
+function renderMsgs()   { if(!me)return; me.role==="admin"?renderAdminTab():renderUserMsgs(); }
+function showPage(n)    { document.querySelectorAll(".page").forEach(p=>p.classList.remove("active")); document.getElementById("page-"+n).classList.add("active"); }
+
+/* ═══════════ ADMIN RENDER ═══════════ */
+function renderAdmin() { renderAdminSb(); renderAdminTab(); document.getElementById("a-live").style.display=S.session&&!S.session.ended_at?"inline-flex":"none"; document.getElementById("a-broadcast-badge").style.display=isBroadcasting?"inline-flex":"none"; }
+
+function renderAdminSb() {
+  const s=S.session, live=s&&!s.ended_at;
+  // Session ctrl
+  const sc=document.getElementById("a-sess-ctrl");
+  if(!s||s.ended_at){
+    sc.innerHTML=`<div class="sess-banner" style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${s?.ended_at?`Last ended ${fmtTime(s.ended_at)}`:"No active session"}</div>
+      <input id="sess-title" class="inp" value="Morning Briefing" style="margin-bottom:10px"/>
+      <button class="btn btn-orange btn-full btn-sm" onclick="startSess()">▶ Start Session</button>
+    </div>`;
+  } else {
+    sc.innerHTML=`<div class="sess-banner live">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><div class="live-dot"></div><span style="font-size:13px;font-weight:600;color:var(--text)">${s.title}</span></div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Started ${fmtTime(s.started_at)}</div>
+      <button class="btn btn-red btn-full btn-sm" onclick="endSess('${s.id}')">■ End Session</button>
+      <div style="font-size:11px;color:var(--text3);margin-top:7px">${S.joinedUsers.length} user(s) joined</div>
+    </div>`;
+  }
+  // Online count
+  document.getElementById("a-online-cnt").textContent=S.onlineUsers.filter(u=>u.role!=="admin").length+" online";
+  // Sidebar user list (compact)
+  const ul=document.getElementById("a-user-list");
+  const sm=s?S.messages.filter(m=>m.session_id===s.id):[];
+  ul.innerHTML=S.allUsers.map(u=>{
+    const online=S.onlineUsers.some(o=>o.id===u.id), joined=S.joinedUsers.includes(u.id), spk=S.speakingUsers.includes(u.id);
+    const cnt=sm.filter(m=>m.user_id===u.id&&!m.is_admin_reply).length;
+    return `<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:var(--bg3);border:1px solid ${spk?"var(--orange)":joined?"#5b8dee30":"var(--border)"}">
+      <div class="av ${avCls(u.color)}" style="width:28px;height:28px;font-size:9px">${u.avatar}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.name}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3)">${u.id}</div></div>
+      ${spk?`<span style="font-size:12px">🎙</span>`:joined?`<div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>`:`<div style="width:7px;height:7px;border-radius:50%;background:var(--text3)"></div>`}
+      ${cnt?`<span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--orange)">${cnt}</span>`:""}
+    </div>`;
+  }).join("") || `<div style="font-size:11px;color:var(--text3);text-align:center;padding:10px">No users yet</div>`;
+  // Stats
+  const sm2=s?S.messages.filter(m=>m.session_id===s.id):[];
+  document.getElementById("s1").textContent=S.joinedUsers.length;
+  document.getElementById("s2").textContent=sm2.filter(m=>!m.is_admin_reply).length;
+  document.getElementById("s3").textContent=S.allUsers.length;
+  document.getElementById("s4").textContent=0; // updated by recordings tab
+}
+
+function renderAdminTab() {
+  const t=S.curTab;
+  if(t==="live")       renderAdminLive();
+  if(t==="messages")   renderAdminMessages();
+  if(t==="recordings") renderAdminRecordings();
+  if(t==="users")      renderAdminUsers();
+}
+
+function renderAdminLive() {
+  const s=S.session, el=document.getElementById("a-tab-live");
+  if(!s){ el.innerHTML=`<div class="empty"><div class="empty-icon">🎙</div><div class="empty-t">No Active Session</div><div class="empty-s">Start a session from the sidebar</div></div>`; return; }
+  const live=!s.ended_at;
+  const sessionMsgs=S.messages.filter(m=>m.session_id===s.id&&!m.is_admin_reply).sort((a,b)=>a.recorded_at-b.recorded_at);
+  const replies=S.messages.filter(m=>m.session_id===s.id&&m.is_admin_reply);
+
+  // Compute dynamic grid columns
+  const joined=S.joinedUsers.length;
+  const cols=joined<=2?2:joined<=4?2:joined<=6?3:joined<=9?3:joined<=12?4:5;
+
+  el.innerHTML=`
+    <!-- BROADCAST PANEL -->
+    ${live?`
+    <div class="broadcast-panel ${isBroadcasting?"active":"}" id="broadcast-panel" style="margin-bottom:16px">
+      <div class="broadcast-controls">
+        <button class="broadcast-btn ${isBroadcasting?"on":"off"}" id="broadcast-btn" onclick="toggleBroadcast()">
+          ${isBroadcasting?"🔴":"🎙"}
+        </button>
+        <div class="broadcast-info">
+          <div class="broadcast-title">${isBroadcasting?"Broadcasting to all users":"Admin Broadcast"}</div>
+          <div class="broadcast-sub">${isBroadcasting?"Your voice is live — all joined users can hear you":"Click to start speaking to all joined users"}</div>
+          ${isBroadcasting?`<div class="broadcast-timer" id="broadcast-timer">0:00</div>`:""}
+        </div>
+        ${isBroadcasting?`<div class="wv on">${Array.from({length:12},(_,i)=>`<div class="wb" style="animation-delay:${i*.06}s"></div>`).join("")}</div>`:""}
+      </div>
+    </div>`:""}
+
+    <!-- USER CARDS GRID -->
+    <div class="cards-section" style="margin-bottom:16px">
+      <div class="sec-hdr" style="margin-bottom:14px">
+        <span>Joined Users</span>
+        <span style="color:var(--green);font-family:'JetBrains Mono',monospace;font-size:10px">${joined} joined</span>
+      </div>
+      ${joined===0?`<div class="empty" style="padding:30px"><div class="empty-icon" style="font-size:32px">👥</div><div class="empty-t">Waiting for users to join</div></div>`:`
+      <div class="cards-grid" style="grid-template-columns:repeat(${cols},1fr)">
+        ${S.allUsers.filter(u=>S.joinedUsers.includes(u.id)).map(u=>{
+          const spk=S.speakingUsers.includes(u.id);
+          const cnt=sessionMsgs.filter(m=>m.user_id===u.id).length;
+          return `<div class="user-card joined ${spk?"speaking":""}">
+            ${cnt>0?`<div class="card-msg-count">${cnt}</div>`:""}
+            <div class="card-avatar ${avCls(u.color)}" style="width:${joined>12?46:56}px;height:${joined>12?46:56}px;font-size:${joined>12?13:16}px">${u.avatar}</div>
+            <div class="card-name" style="font-size:${joined>12?11:13}px">${u.name}</div>
+            <div class="card-id">${u.id}</div>
+            <div class="card-status ${spk?"status-speaking":S.onlineUsers.some(o=>o.id===u.id)?"status-joined":"status-offline"}">
+              ${spk?`🎙 Speaking`:S.onlineUsers.some(o=>o.id===u.id)?"● Joined":"○ Offline"}
+            </div>
+            ${spk?`<div class="wv on card-wave">${Array.from({length:8},(_,i)=>`<div class="wb" style="animation-delay:${i*.07}s"></div>`).join("")}</div>`:""}
+          </div>`;
+        }).join("")}
+      </div>`}
+    </div>
+
+    <!-- USER MESSAGES in Live Tab -->
+    ${sessionMsgs.length?`
+    <div class="sec-hdr">User Messages <span style="color:var(--text2)">${sessionMsgs.length} message(s)</span></div>
+    ${sessionMsgs.map(m=>{
+      const u=S.allUsers.find(x=>x.id===m.user_id)||{color:"blue"};
+      const msgReplies=replies.filter(r=>r.reply_to_id===m.id);
+      return `<div class="msg-card" id="mc-${m.id}">
+        <div class="av ${avCls(u.color)}">${m.avatar||"??"}</div>
+        <div style="flex:1;min-width:0">
+          <div class="msg-meta">
+            <span class="msg-name">${m.user_name}</span>
+            <span class="msg-uid">${m.user_id}</span>
+            <span class="msg-time">${fmtTime(m.recorded_at)}</span>
+            ${m.duration?`<span class="dur-tag">${fmtDur(m.duration)}</span>`:""}
+          </div>
+          <div class="ap">
+            <button class="ap-play" id="pb-${m.id}" onclick="togglePlay('${m.id}','${m.audio_url}')">▶</button>
+            <div class="ap-prog" onclick="seekA(event,'${m.id}')"><div class="ap-fill" id="pf-${m.id}" style="width:0%"></div></div>
+            <span class="ap-dur" id="dl-${m.id}">${m.duration?fmtDur(m.duration):"0:00"}</span>
+          </div>
+          ${live?`<div style="margin-top:8px"><button class="reply-msg-btn" onclick="adminStartReply('${m.id}','${m.user_name.replace(/'/g,"\\'")}','${m.avatar}','${m.user_id}')">↩ Reply to ${m.user_name.split(" ")[0]}</button></div>`:""}
+        </div>
+      </div>
+      ${msgReplies.map(r=>`<div class="msg-card is-reply">
+        <div class="av av-admin">${r.avatar||"AD"}</div>
+        <div style="flex:1;min-width:0">
+          <div class="msg-meta">
+            <span class="msg-name" style="color:var(--purple)">${r.user_name}</span>
+            <span class="reply-badge">↩ Reply</span>
+            <span class="msg-time">${fmtTime(r.recorded_at)}</span>
+            ${r.duration?`<span class="dur-tag">${fmtDur(r.duration)}</span>`:""}
+          </div>
+          <div class="ap">
+            <button class="ap-play" id="pb-${r.id}" onclick="togglePlay('${r.id}','${r.audio_url}')">▶</button>
+            <div class="ap-prog" onclick="seekA(event,'${r.id}')"><div class="ap-fill" id="pf-${r.id}" style="width:0%"></div></div>
+            <span class="ap-dur" id="dl-${r.id}">${r.duration?fmtDur(r.duration):"0:00"}</span>
+          </div>
+        </div>
+      </div>`).join("")}`;
+    }).join("")}`:`<div class="empty" style="padding:30px"><div class="empty-icon" style="font-size:32px">🎙</div><div class="empty-t">${live?"Waiting for users to speak":"No messages recorded"}</div></div>`}
+  `;
+}
+
+async function renderAdminMessages() {
+  const el=document.getElementById("a-tab-messages");
+  el.innerHTML=`<div style="display:flex;justify-content:center;padding:40px"><div class="spin2"></div></div>`;
+  try {
+    const msgs=await api("GET","/api/messages");
+    if(!msgs.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">No Messages</div></div>`;return;}
+    const byDate={};
+    for(const m of msgs){const d=fmtDate(m.recorded_at);(byDate[d]=byDate[d]||[]).push(m);}
+    el.innerHTML=Object.entries(byDate).map(([d,ms])=>{
+      const origs=ms.filter(m=>!m.is_admin_reply), repls=ms.filter(m=>m.is_admin_reply);
+      return `<div class="date-div">${d}</div>${origs.map(m=>{
+        const u=S.allUsers.find(x=>x.id===m.user_id)||{color:"blue"};
+        const msgR=repls.filter(r=>r.reply_to_id===m.id);
+        return `<div class="msg-card">
+          <div class="av ${avCls(u.color)}">${m.avatar||"??"}</div>
+          <div style="flex:1;min-width:0">
+            <div class="msg-meta"><span class="msg-name">${m.user_name}</span><span class="msg-uid">${m.user_id}</span><span class="msg-time">${fmtTime(m.recorded_at)}</span>${m.duration?`<span class="dur-tag">${fmtDur(m.duration)}</span>`:""}</div>
+            <div class="ap"><button class="ap-play" id="pb-${m.id}" onclick="togglePlay('${m.id}','${m.audio_url}')">▶</button><div class="ap-prog" onclick="seekA(event,'${m.id}')"><div class="ap-fill" id="pf-${m.id}" style="width:0%"></div></div><span class="ap-dur" id="dl-${m.id}">${m.duration?fmtDur(m.duration):"0:00"}</span></div>
+          </div>
+        </div>${msgR.map(r=>`<div class="msg-card is-reply"><div class="av av-admin">${r.avatar||"AD"}</div><div style="flex:1;min-width:0"><div class="msg-meta"><span class="msg-name" style="color:var(--purple)">${r.user_name}</span><span class="reply-badge">↩</span><span class="msg-time">${fmtTime(r.recorded_at)}</span></div><div class="ap"><button class="ap-play" id="pb-${r.id}" onclick="togglePlay('${r.id}','${r.audio_url}')">▶</button><div class="ap-prog" onclick="seekA(event,'${r.id}')"><div class="ap-fill" id="pf-${r.id}" style="width:0%"></div></div><span class="ap-dur" id="dl-${r.id}">${r.duration?fmtDur(r.duration):"0:00"}</span></div></div></div>`).join("")}`;
+      }).join("")}`;
+    }).join("");
+  } catch(e){el.innerHTML=`<div class="empty"><div class="empty-t">Failed to load</div></div>`;}
+}
+
+async function renderAdminRecordings() {
+  const el=document.getElementById("a-tab-recordings");
+  el.innerHTML=`<div style="display:flex;justify-content:center;padding:40px"><div class="spin2"></div></div>`;
+  try {
+    const recs=await api("GET","/api/admin/recordings"+(S.session?`?sessionId=${S.session.id}`:""));
+    document.getElementById("s4").textContent=recs.length;
+    if(!recs.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🎙</div><div class="empty-t">No Admin Recordings</div><div class="empty-s">Your broadcast recordings will appear here</div></div>`;return;}
+    el.innerHTML=`<div class="sec-hdr" style="margin-bottom:14px">Your Broadcast Recordings <span style="color:var(--text2)">${recs.length} recording(s)</span></div>`+recs.map(r=>`
+      <div class="msg-card admin-rec">
+        <div class="av av-admin">AD</div>
+        <div style="flex:1;min-width:0">
+          <div class="msg-meta">
+            <span class="msg-name" style="color:var(--accent)">Admin Broadcast</span>
+            <span class="msg-time">${fmtTime(r.recorded_at)}</span>
+            ${r.duration?`<span class="dur-tag">${fmtDur(r.duration)}</span>`:""}
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3)">${fmtBytes(r.file_size||0)}</span>
+          </div>
+          <div class="ap">
+            <button class="ap-play" id="pb-${r.id}" onclick="togglePlay('${r.id}','${r.audio_url}')">▶</button>
+            <div class="ap-prog" onclick="seekA(event,'${r.id}')"><div class="ap-fill" id="pf-${r.id}" style="width:0%"></div></div>
+            <span class="ap-dur" id="dl-${r.id}">${r.duration?fmtDur(r.duration):"0:00"}</span>
+          </div>
+        </div>
+      </div>`).join("");
+  } catch(e){el.innerHTML=`<div class="empty"><div class="empty-t">Failed to load</div></div>`;}
+}
+
+async function renderAdminUsers() {
+  const el=document.getElementById("a-tab-users");
+  el.innerHTML=`<div style="display:flex;justify-content:center;padding:40px"><div class="spin2"></div></div>`;
+  try {
+    const users=await api("GET","/api/users"); S.allUsers=users;
+    if(!users.length){el.innerHTML=`<div class="empty"><div class="empty-t">No Users</div></div>`;return;}
+    el.innerHTML=`<table class="utbl"><thead><tr><th>User</th><th>ID</th><th>Messages</th><th>Replies Received</th><th></th></tr></thead><tbody>${users.map(u=>`<tr>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="av ${avCls(u.color)}" style="width:26px;height:26px;font-size:9px">${u.avatar}</div>${u.name}</div></td>
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent)">${u.id}</span></td>
+      <td style="color:var(--orange)">${S.messages.filter(m=>m.user_id===u.id&&!m.is_admin_reply).length}</td>
+      <td style="color:var(--green)">${S.messages.filter(m=>m.is_admin_reply&&S.messages.find(om=>om.id===m.reply_to_id&&om.user_id===u.id)).length}</td>
+      <td><button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:#ff456025" onclick="delUser('${u.id}','${u.name}')">Delete</button></td>
+    </tr>`).join("")}</tbody></table>`;
+  } catch(e){}
+}
+
+function aTab(tab,el){ S.curTab=tab; document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active")); el.classList.add("active"); ["live","messages","recordings","users"].forEach(t=>document.getElementById(`a-tab-${t}`).style.display=t===tab?"block":"none"); renderAdminTab(); }
+
+/* ═══════════ ADMIN BROADCAST (WebRTC) ═══════════ */
+async function toggleBroadcast() {
+  if(!isBroadcasting) await startBroadcast();
+  else stopBroadcast();
+}
+
+async function startBroadcast() {
+  if(!S.session||S.session.ended_at){ notif("No active session.","warn"); return; }
+  try {
+    // Get mic stream
+    localStream=await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    isBroadcasting=true;
+    broadStart=Date.now();
+
+    // Tell server we're broadcasting
+    io_.emit("webrtc:admin_broadcast_start", { sessionId:S.session.id });
+    io_.emit("speaking_start");
+
+    // Request WebRTC connection from each joined user
+    S.joinedUsers.forEach(uid=>{
+      io_.emit("webrtc:request_connect", { userId:uid });
+      setTimeout(()=>{
+        const pc=createAdminPeerConnection(uid, null);
+        peerConnections[uid]=pc;
+      },200);
+    });
+
+    // Also start background recording
+    startBackgroundRecording();
+
+    // Update broadcast timer
+    broadTimer=setInterval(()=>{
+      const el=document.getElementById("broadcast-timer");
+      if(el) el.textContent=fmtDur((Date.now()-broadStart)/1000);
+    },500);
+
+    renderAdminLive();
+    document.getElementById("a-broadcast-badge").style.display="inline-flex";
+    notif("📡 Broadcasting to all users!","success");
+  } catch(e) {
+    notif("Mic access denied: "+e.message,"error");
+    isBroadcasting=false;
+  }
+}
+
+function stopBroadcast() {
+  if(!isBroadcasting) return;
+  isBroadcasting=false;
+  clearInterval(broadTimer);
+  io_.emit("webrtc:admin_broadcast_stop", { sessionId:S.session?.id });
+  io_.emit("speaking_stop");
+  // Close all peer connections
+  Object.entries(peerConnections).forEach(([uid,pc])=>{ pc.close(); delete peerConnections[uid]; });
+  // Stop local stream
+  if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+  stopBackgroundRecording();
+  document.getElementById("a-broadcast-badge").style.display="none";
+  renderAdminLive();
+  notif("Broadcast stopped.","info");
+}
+
+// Record admin voice in background
+function startBackgroundRecording() {
+  if(!localStream) return;
+  broadChunks=[];
+  broadMr=new MediaRecorder(localStream,{ mimeType:getMime() });
+  broadMr.ondataavailable=e=>{ if(e.data.size>0) broadChunks.push(e.data); };
+  broadMr.onstop=()=>finalizeBroadcastRecording();
+  broadMr.start(100);
+  console.log("[Recording] Admin background recording started");
+}
+
+function stopBackgroundRecording() {
+  if(broadMr&&broadMr.state!=="inactive") broadMr.stop();
+}
+
+async function finalizeBroadcastRecording() {
+  if(!broadChunks.length||!S.session) return;
+  const dur=(Date.now()-broadStart)/1000;
+  if(dur<1) return;
+  const blob=new Blob(broadChunks,{ type:getMime()||"audio/webm" });
+  try {
+    await uploadAdminRecording(blob, S.session.id, dur);
+    console.log("[Recording] Admin recording saved:", fmtDur(dur));
+    notif("Your broadcast recording saved.","info");
+    if(S.curTab==="recordings") renderAdminRecordings();
+  } catch(e) { console.error("[Recording] Save failed:", e.message); }
+}
+
+/* ═══════════ ADMIN REPLY ═══════════ */
+function adminStartReply(msgId, userName, avatar, userId) {
+  adminReplyTarget={id:msgId,user_name:userName,avatar,user_id:userId};
+  const existing=document.getElementById("admin-reply-float"); if(existing)existing.remove();
+  const div=document.createElement("div"); div.id="admin-reply-float"; div.className="admin-reply-float";
+  div.innerHTML=`<div class="rec-panel reply-active" style="box-shadow:0 8px 32px rgba(0,0,0,.6)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--green);font-weight:600">↩ Replying to ${userName}</div>
+      <button class="btn btn-ghost btn-sm" onclick="cancelAdminReply()" style="padding:3px 8px">✕</button>
+    </div>
+    <div class="mic-wrap" id="admin-mic-wrap">
+      <button class="mic-btn" id="admin-mic-btn" style="border-color:#26d98a60;color:var(--green)"
+        onmousedown="adminStartRec()" onmouseup="adminStopRec()" onmouseleave="adminStopIfRec()"
+        ontouchstart="ats(event)" ontouchend="ate(event)">🎙</button>
+    </div>
+    <div id="admin-rec-timer" class="rec-timer" style="display:none;color:var(--green);font-size:18px">0:00</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px" id="admin-rec-hint">Hold to record reply</div>
+  </div>`;
+  document.body.appendChild(div);
+}
+
+function cancelAdminReply() { adminReplyTarget=null; const el=document.getElementById("admin-reply-float"); if(el)el.remove(); if(isAdminRec)adminStopRec(); }
+
+async function adminStartRec() {
+  if(isAdminRec||!adminReplyTarget) return;
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    adminChunks=[]; adminMr=new MediaRecorder(stream,{mimeType:getMime()});
+    adminMr.ondataavailable=e=>{if(e.data.size>0)adminChunks.push(e.data)};
+    adminMr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());finalizeAdminRec()};
+    adminMr.start(100); isAdminRec=true; adminRecStart=Date.now();
+    const btn=document.getElementById("admin-mic-btn");
+    const wrap=document.getElementById("admin-mic-wrap");
+    if(btn) btn.classList.add("recording");
+    if(wrap&&!wrap.querySelector(".mic-ring")){
+      const r1=document.createElement("div");r1.className="mic-ring";r1.style.cssText="width:100px;height:100px;border-color:var(--green)";wrap.insertBefore(r1,btn);
+    }
+    adminRecTimer=setInterval(()=>{const el=document.getElementById("admin-rec-timer");if(el){el.style.display="block";el.textContent=fmtDur((Date.now()-adminRecStart)/1000);}},500);
+    const hint=document.getElementById("admin-rec-hint"); if(hint) hint.textContent="Release to send reply";
+  } catch(e){notif("Mic access denied.","error");}
+}
+function adminStopRec(){ if(!isAdminRec)return; clearInterval(adminRecTimer); isAdminRec=false; if(adminMr&&adminMr.state!=="inactive")adminMr.stop(); const btn=document.getElementById("admin-mic-btn"); if(btn)btn.classList.remove("recording"); const wrap=document.getElementById("admin-mic-wrap"); if(wrap)wrap.querySelectorAll(".mic-ring").forEach(r=>r.remove()); }
+function adminStopIfRec(){ if(isAdminRec)adminStopRec(); }
+function ats(e){e.preventDefault();adminStartRec();}
+function ate(e){e.preventDefault();adminStopRec();}
+
+async function finalizeAdminRec() {
+  if(!adminChunks.length||!adminReplyTarget) return;
+  const dur=(Date.now()-adminRecStart)/1000;
+  if(dur<0.5){notif("Too short.","warn");return;}
+  const blob=new Blob(adminChunks,{type:getMime()||"audio/webm"});
+  notif("Sending reply…","info");
+  try {
+    const msg=await uploadAudio(blob,S.session.id,dur,adminReplyTarget.id);
+    if(!S.messages.find(m=>m.id===msg.id)) S.messages.push(msg);
+    notif(`Reply sent to ${adminReplyTarget.user_name}!`,"success");
+    cancelAdminReply(); renderAdminLive();
+  } catch(e){notif("Upload failed: "+e.message,"error");}
+}
+
+/* ═══════════ USER RENDER ═══════════ */
+function renderUser() { renderUserSb(); renderUserMain(); }
+
+function renderUserSb() {
+  const s=S.session, live=s&&!s.ended_at, joined=S.joinedUsers.includes(me.id);
+  document.getElementById("u-name-bar").textContent=me.name;
+  document.getElementById("u-nm-s").textContent=me.name;
+  document.getElementById("u-id-s").textContent=me.id;
+  document.getElementById("u-av-s").textContent=me.avatar||me.name[0];
+  document.getElementById("u-av-s").className=`av ${avCls(me.color||"blue")} av-lg`;
+  document.getElementById("u-live").style.display=live?"inline-flex":"none";
+  const sc=document.getElementById("u-sess-card");
+  sc.className=`sess-banner ${live?"live":s?.ended_at?"ended":""}`;
+  if(live){ sc.innerHTML=`<div class="sec-hdr">Session</div><div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><div class="live-dot"></div><span style="font-size:11px;font-weight:600;color:var(--red)">LIVE</span></div><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">${s.title}</div><div style="font-size:10px;color:var(--text3);margin-bottom:10px">Started ${fmtTime(s.started_at)}</div>${joined?`<span class="badge b-online">You're joined</span>`:`<button class="btn btn-orange btn-sm btn-full" onclick="joinSess()">Join Session Now</button>`}`; }
+  else if(s?.ended_at){ sc.innerHTML=`<div class="sec-hdr">Session</div><span class="badge" style="background:#ffc94715;color:var(--gold);border:1px solid #ffc94735">Ended</span><div style="font-size:10px;color:var(--text3);margin-top:7px">Ended ${fmtTime(s.ended_at)}</div>`; }
+  else { sc.innerHTML=`<div class="sec-hdr">Session</div><div style="font-size:11px;color:var(--text3)">No active session</div>`; }
+}
+
+async function renderUserMain() {
+  const s=S.session, live=s&&!s.ended_at, joined=S.joinedUsers.includes(me.id);
+  // Admin speaking bar
+  const asb=document.getElementById("u-admin-speaking");
+  if(asb) asb.style.display=(S.adminBroadcasting&&live&&joined)?"block":"none";
+  // Rec panel
+  document.getElementById("u-rec-panel").style.display=(live&&joined)?"block":"none";
+  // Join prompt
+  const jp=document.getElementById("u-join-prompt");
+  if(live&&!joined){ jp.style.display="block"; jp.innerHTML=`<div class="join-card"><div style="font-size:28px;margin-bottom:10px">🔔</div><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">"${s.title}" is live!</div><div style="font-size:12px;color:var(--text2);margin-bottom:18px">Admin started a session. Join to participate.</div><button class="btn btn-orange" onclick="joinSess()">Join Session Now</button></div>`; }
+  else jp.style.display="none";
+  // Date filters
+  const dates=await api("GET","/api/messages/dates").catch(()=>[]);
+  const myMsgs=S.messages.filter(m=>m.user_id===me.id||m.is_admin_reply);
+  const dw=document.getElementById("u-date-wrap");
+  if(dates.length){ dw.style.display="block"; document.getElementById("u-date-list").innerHTML=`<button class="dfbtn ${!S.selDate?"active":""}" onclick="filterDate(null)">All Dates <span class="dcnt">${myMsgs.length}</span></button>${dates.map(d=>{const cnt=myMsgs.filter(m=>new Date(m.recorded_at).toISOString().slice(0,10)===d).length;const display=new Date(d+"T12:00:00").toLocaleDateString("en-IN",{weekday:"short",month:"short",day:"numeric"});return `<button class="dfbtn ${S.selDate===d?"active":""}" onclick="filterDate('${d}')"><span>${display}</span><span class="dcnt">${cnt}</span></button>`;}).join("")}`; }
+  else dw.style.display="none";
+  renderUserMsgs();
+}
+
+async function renderUserMsgs() {
+  const lbl=document.getElementById("u-msgs-lbl"), list=document.getElementById("u-msgs-list");
+  let msgs;
+  if(S.selDate){ lbl.textContent=`Messages — ${new Date(S.selDate+"T12:00:00").toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}`; msgs=await api("GET",`/api/messages?date=${S.selDate}`).catch(()=>[]); }
+  else { lbl.textContent="Your Voice Messages & Admin Replies"; msgs=S.messages; }
+  const myIds=new Set(msgs.filter(m=>m.user_id===me.id&&!m.is_admin_reply).map(m=>m.id));
+  const myMsgs=msgs.filter(m=>m.user_id===me.id&&!m.is_admin_reply).sort((a,b)=>a.recorded_at-b.recorded_at);
+  const replies=msgs.filter(m=>m.is_admin_reply&&m.reply_to_id&&myIds.has(m.reply_to_id));
+  if(!myMsgs.length){ list.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">No Voice Messages</div><div class="empty-s">${S.session&&!S.session.ended_at&&S.joinedUsers.includes(me.id)?"Hold the mic to record":"Join a live session to send messages"}</div></div>`; return; }
+  let html="",lastDate="";
+  for(const m of myMsgs){
+    const d=fmtDate(m.recorded_at);
+    if(d!==lastDate){html+=`<div class="date-div">${d}</div>`;lastDate=d;}
+    html+=`<div class="msg-card" id="mc-${m.id}"><div class="av ${avCls(me.color||"blue")}">${m.avatar||me.avatar||"??"}</div><div style="flex:1;min-width:0"><div class="msg-meta"><span class="msg-name">You</span><span class="msg-time">${fmtTime(m.recorded_at)}</span>${m.duration?`<span class="dur-tag">${fmtDur(m.duration)}</span>`:""}</div><div class="ap"><button class="ap-play" id="pb-${m.id}" onclick="togglePlay('${m.id}','${m.audio_url}')">▶</button><div class="ap-prog" onclick="seekA(event,'${m.id}')"><div class="ap-fill" id="pf-${m.id}" style="width:0%"></div></div><span class="ap-dur" id="dl-${m.id}">${m.duration?fmtDur(m.duration):"0:00"}</span></div></div></div>`;
+    replies.filter(r=>r.reply_to_id===m.id).forEach(r=>{
+      html+=`<div class="msg-card is-reply"><div class="av av-admin">${r.avatar||"AD"}</div><div style="flex:1;min-width:0"><div class="msg-meta"><span class="msg-name" style="color:var(--purple)">${r.user_name}</span><span class="reply-badge">↩ Admin Reply</span><span class="msg-time">${fmtTime(r.recorded_at)}</span>${r.duration?`<span class="dur-tag">${fmtDur(r.duration)}</span>`:""}</div><div class="ap"><button class="ap-play" id="pb-${r.id}" onclick="togglePlay('${r.id}','${r.audio_url}')">▶</button><div class="ap-prog" onclick="seekA(event,'${r.id}')"><div class="ap-fill" id="pf-${r.id}" style="width:0%"></div></div><span class="ap-dur" id="dl-${r.id}">${r.duration?fmtDur(r.duration):"0:00"}</span></div></div></div>`;
+    });
+  }
+  list.innerHTML=html;
+}
+
+/* ═══════════ AUDIO PLAYBACK ═══════════ */
+async function togglePlay(mid, url) {
+  for(const[id,au]of Object.entries(audioCache)){ if(id!==mid&&!au.paused){au.pause();au.currentTime=0;const b=document.getElementById("pb-"+id);if(b){b.textContent="▶";b.classList.remove("playing")}const p=document.getElementById("pf-"+id);if(p)p.style.width="0%";} }
+  if(!audioCache[mid]){
+    const au=new Audio(url); audioCache[mid]=au;
+    au.ontimeupdate=()=>{ const p=document.getElementById("pf-"+mid),d=document.getElementById("dl-"+mid),msg=S.messages.find(m=>m.id===mid); if(p&&au.duration)p.style.width=(au.currentTime/au.duration*100)+"%"; if(d)d.textContent=fmtDur(au.currentTime)+" / "+fmtDur(au.duration||msg?.duration||0); };
+    au.onended=()=>{ const b=document.getElementById("pb-"+mid);if(b){b.textContent="▶";b.classList.remove("playing")}const p=document.getElementById("pf-"+mid);if(p)p.style.width="0%"; };
+  }
+  const au=audioCache[mid],btn=document.getElementById("pb-"+mid);
+  if(!btn)return;
+  if(au.paused){try{await au.play();btn.textContent="⏸";btn.classList.add("playing");}catch(e){notif("Cannot play audio.","error");}}
+  else{au.pause();btn.textContent="▶";btn.classList.remove("playing");}
+}
+function seekA(e,mid){ const au=audioCache[mid]; if(!au||!au.duration)return; const r=e.currentTarget.getBoundingClientRect(); au.currentTime=((e.clientX-r.left)/r.width)*au.duration; }
+
+/* ═══════════ SESSION ═══════════ */
+async function startSess(){ const t=document.getElementById("sess-title")?.value.trim()||"Live Session"; try{const s=await api("POST","/api/sessions",{title:t});S.session=s;S.joinedUsers=[];S.messages=[];renderAll();notif(`Session "${t}" started!`,"success");}catch(e){notif("Error: "+e.message,"error");} }
+async function endSess(id){ if(!confirm("End this session?"))return; stopBroadcast(); try{const s=await api("PUT",`/api/sessions/${id}/end`);S.session=s;renderAll();notif("Session ended.","info");}catch(e){notif("Error: "+e.message,"error");} }
+async function joinSess(){ if(!S.session||S.session.ended_at){notif("No active session.","warn");return;} if(!S.joinedUsers.includes(me.id))S.joinedUsers.push(me.id); io_.emit("join_session",{sessionId:S.session.id}); renderUser(); notif(`Joined "${S.session.title}"!`,"success"); await loadSessMsgs(S.session.id); renderUserMsgs(); }
+function filterDate(d){ S.selDate=d; renderUserMain(); }
+
+/* ═══════════ USER RECORDING ═══════════ */
+async function startRec() {
+  if(isRec)return;
+  if(!S.session||S.session.ended_at){notif("No active session.","warn");return;}
+  if(!S.joinedUsers.includes(me.id)){notif("Join the session first.","warn");return;}
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    recChunks=[]; mr=new MediaRecorder(stream,{mimeType:getMime()});
+    mr.ondataavailable=e=>{if(e.data.size>0)recChunks.push(e.data)};
+    mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());finalizeRec()};
+    mr.start(100); isRec=true; recStart=Date.now();
+    io_.emit("speaking_start");
+    recTimer=setInterval(()=>{const el=document.getElementById("rec-timer");if(el)el.textContent=fmtDur((Date.now()-recStart)/1000);},500);
+    updateRecUI();
+  } catch(e){notif("Mic access denied.","error");}
+}
+function stopRec(){ if(!isRec)return; clearInterval(recTimer); isRec=false; io_.emit("speaking_stop"); if(mr&&mr.state!=="inactive")mr.stop(); updateRecUI(); }
+function stopIfRec(){ if(isRec)stopRec(); }
+function touchS(e){e.preventDefault();startRec();}
+function touchE(e){e.preventDefault();stopRec();}
+async function finalizeRec(){
+  if(!recChunks.length)return;
+  const dur=(Date.now()-recStart)/1000;
+  if(dur<0.5){notif("Too short.","warn");return;}
+  const blob=new Blob(recChunks,{type:getMime()||"audio/webm"});
+  notif("Sending message…","info");
+  try{ const msg=await uploadAudio(blob,S.session.id,dur,null); if(!S.messages.find(m=>m.id===msg.id))S.messages.push(msg); notif("Voice message sent! 🎙","success"); renderUserMsgs(); }
+  catch(e){ notif("Upload failed: "+e.message,"error"); }
+}
+function updateRecUI(){
+  const btn=document.getElementById("mic-btn"),wrap=document.getElementById("mic-wrap"),timer=document.getElementById("rec-timer"),hint=document.getElementById("rec-hint"),wave=document.getElementById("rec-wave"),panel=document.getElementById("rec-inner");
+  if(!btn)return;
+  if(isRec){
+    btn.classList.add("recording");panel.classList.add("active");
+    if(!wrap.querySelector(".mic-ring")){const r1=document.createElement("div");r1.className="mic-ring";r1.style.cssText="width:100px;height:100px;animation-delay:0s";wrap.insertBefore(r1,btn);const r2=document.createElement("div");r2.className="mic-ring";r2.style.cssText="width:120px;height:120px;animation-delay:.4s";wrap.insertBefore(r2,btn);}
+    if(timer){timer.style.display="block";}
+    if(hint)hint.textContent="Release to send";
+    if(wave){wave.style.display="flex";wave.className="wv on";if(!wave.children.length)wave.innerHTML=Array.from({length:18},(_,i)=>`<div class="wb" style="animation-delay:${i*.07}s"></div>`).join("");}
+  } else {
+    btn.classList.remove("recording");panel.classList.remove("active");
+    wrap.querySelectorAll(".mic-ring").forEach(r=>r.remove());
+    if(timer){timer.style.display="none";timer.textContent="0:00";}
+    if(hint)hint.textContent="Hold to record · Release to send";
+    if(wave){wave.style.display="none";wave.className="wv off";}
+  }
+}
+
+/* ═══════════ USER MGMT ═══════════ */
+async function addUser(){ const name=document.getElementById("n-name").value.trim(),id=document.getElementById("n-id").value.trim().toUpperCase(),pass=document.getElementById("n-pass").value.trim(); if(!name||!id||!pass){notif("Fill all fields.","warn");return;} try{await api("POST","/api/users",{name,userId:id,password:pass});document.getElementById("n-name").value="";document.getElementById("n-id").value="";document.getElementById("n-pass").value="";S.allUsers=await api("GET","/api/users");renderAdminSb();buildCredsList();notif(`User "${name}" added.`,"success");if(S.curTab==="users")renderAdminUsers();}catch(e){notif("Error: "+e.message,"error");} }
+async function delUser(id,name){ if(!confirm(`Delete "${name}"?`))return; try{await api("DELETE",`/api/users/${id}`);S.allUsers=S.allUsers.filter(u=>u.id!==id);renderAdminSb();renderAdminUsers();notif("User removed.","info");}catch(e){notif("Error: "+e.message,"error");} }
+
+/* ═══════════ CREDS ═══════════ */
+async function buildCredsList(){ const el=document.getElementById("cred-list");if(!el)return;try{const users=await api("GET","/api/users").catch(()=>[]);el.innerHTML=users.slice(0,5).map(u=>`<div class="cred-row"><span style="color:var(--text3)">${u.name}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:10px">${u.id}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text2);font-size:10px">pass${u.id.slice(-3)}</span></div>`).join("");}catch(e){el.innerHTML=`<div class="cred-row"><span style="color:var(--text3);font-size:11px">USR001–USR005 / pass001–pass005</span></div>`;} }
+
+/* ═══════════ INIT ═══════════ */
+(async()=>{
+  buildCredsList();
+  if(token&&me){
+    try{ await loadInitData(); initSocket(); showPage(me.role==="admin"?"admin":"user"); }
+    catch(e){ localStorage.removeItem("vox_token"); localStorage.removeItem("vox_user"); token=null; me=null; }
+  }
+})();
+</script>
+</body>
+</html>
