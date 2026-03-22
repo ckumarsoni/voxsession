@@ -290,12 +290,13 @@ io.on("connection", socket => {
 
 // Start
 db.init().then(() => {
-  server.listen(cfg.PORT, "0.0.0.0", () => {
+  const PORT = process.env.PORT || 8080;
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`\n╔══════════════════════════════════════╗`);
     console.log(`║  VoxSession v4 — WebRTC Edition      ║`);
-    console.log(`║  Port: ${cfg.PORT}                          ║`);
+    console.log(`║  Port: ${PORT}                          ║`);
     console.log(`╚══════════════════════════════════════╝\n`);
   });
 }).catch(err => { console.error("[FATAL]", err.message); process.exit(1); });
-
+ 
 module.exports = { app, server, io };
